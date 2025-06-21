@@ -89,11 +89,16 @@ ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
 
 EXPOSE 3000
 
-# Make sure start.sh is executable
-RUN chmod +x ./scripts/start.sh
+# Install bash & dos2unix, normalize scripts, and make executable
+RUN apt-get update && \
+    apt-get install -y bash dos2unix && \
+    find ./scripts -type f -name '*.sh' -print0 \
+    | xargs -0 dos2unix && \
+    find ./scripts -type f -name '*.sh' -print0 \
+    | xargs -0 chmod +x
 
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
     CMD wget --spider http://localhost:3000 || exit 1
 
 # Launch under bash to ensure correct interpreter
-CMD ["bash", "/calcom/scripts/start.sh"]
+ENTRYPOINT ["bash", "/calcom/scripts/start.sh"]
