@@ -3,6 +3,9 @@ FROM node:18 AS builder
 
 WORKDIR /calcom
 
+# Enable Corepack so Yarn v3 is available
+RUN corepack enable
+
 # Build-time args
 ARG NEXT_PUBLIC_LICENSE_CONSENT
 ARG NEXT_PUBLIC_WEBSITE_TERMS_URL
@@ -78,9 +81,6 @@ WORKDIR /calcom
 # Copy everything from builder-two
 COPY --from=builder-two /calcom ./
 
-# Copy translations into Next.js public root so /locales/* are served
-COPY --from=builder-two /calcom/apps/web/public/locales ./public/locales
-
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
     BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
@@ -99,4 +99,4 @@ HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
     CMD wget --spider http://localhost:3000 || exit 1
 
 # Launch via bash to pick up correct interpreter
-ENTRYPOINT ["bash", "/calcom/scripts/start.sh"]
+ENTRYPOINT ["bash","/calcom/scripts/start.sh"]
