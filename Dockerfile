@@ -28,25 +28,18 @@ ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
     NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE_SIZE} \
     BUILD_STANDALONE=true
 
-# Copy in only the parts turbo/prune will need
-COPY calcom/package.json calcom/yarn.lock calcom/.yarnrc.yml calcom/playwright.config.ts calcom/turbo.json calcom/i18n.json ./
+# Copy only manifest and lock for turbo
+COPY calcom/package.json calcom/yarn.lock calcom/turbo.json .
 COPY calcom/.yarn ./.yarn
+
+# Copy source
 COPY calcom/apps/web ./apps/web
 COPY calcom/apps/api/v2 ./apps/api/v2
 COPY calcom/packages ./packages
 COPY calcom/tests ./tests
 
-RUN yarn config set httpTimeout 1200000
-RUN npx turbo prune --scope=@calcom/web --scope=@calcom/trpc --docker
-RUN yarn install
-
-# Build each piece
-RUN yarn workspace @calcom/trpc run build
-RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
-RUN yarn --cwd apps/web workspace @calcom/web run build
-
-# Clean up caches to slim image
-RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache
+RUN yarn install --immutable --immutable-cache --check-cache
+RUN npx turbo run build --filter=@calcom/web --filter=@calcom/trpc
 
 # Stage 2: assemble production files
 FROM node:18 AS builder-two
@@ -55,26 +48,26 @@ WORKDIR /calcom
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
 ENV NODE_ENV=production
 
-# Copy only what we need for runtime
-COPY calcom/package.json calcom/.yarnrc.yml calcom/turbo.json calcom/i18n.json ./
+# Bring in only runtime artifacts
+COPY calcom/package.json calcom/.yarnrc.yml calcom/turbo.json .
 COPY calcom/.yarn ./.yarn
 COPY --from=builder /calcom/yarn.lock ./yarn.lock
 COPY --from=builder /calcom/node_modules ./node_modules
 COPY --from=builder /calcom/packages ./packages
-COPY --from=builder /calcom/apps/web ./apps/web
-COPY --from=builder /calcom/packages/prisma/schema.prisma ./prisma/schema.prisma
+
+# Copy built web app
+COPY --from=builder /calcom/apps/web/.next ./apps/web/.next
+COPY --from=builder /calcom/apps/web/public ./apps/web/public
+COPY --from=builder /calcom/apps/web/package.json ./apps/web/package.json
 
 # Bring in helper scripts
 COPY scripts scripts
 
-# Copy Next.js public folder (includes locales/translations)
-COPY --from=builder /calcom/apps/web/public ./apps/web/public
-
-# Preserve the build-time URL for start.sh to re-patch if needed
+# Preserve the build-time URL for start.sh
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
     BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 
-# Replace the placeholder in the static build output
+# Fix any static URLs
 RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
 
 # Stage 3: runtime image
@@ -91,15 +84,12 @@ ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
 
 EXPOSE 3000
 
-# Normalize and make scripts executable
-RUN apt-get update && apt-get install -y bash dos2unix && \
-    find ./scripts -type f -name '*.sh' -print0 \
-    | xargs -0 dos2unix && \
-    find ./scripts -type f -name '*.sh' -print0 \
-    | xargs -0 chmod +x
+# Ensure bash + normalize scripts
+RUN apt-get update && apt-get install -y bash dos2unix \
+    && find ./scripts -type f -name '*.sh' -print0 | xargs -0 dos2unix \
+    && find ./scripts -type f -name '*.sh' -print0 | xargs -0 chmod +x
 
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
     CMD wget --spider http://localhost:3000 || exit 1
 
-# Launch via bash; PORT env ensures Next.js listens on 3000
-ENTRYPOINT ["bash", "/calcom/scripts/start.sh"]
+ENTRYPOINT ["bash","/calcom/scripts/start.sh"]
