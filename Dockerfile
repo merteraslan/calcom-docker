@@ -28,7 +28,7 @@ ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
     NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE_SIZE} \
     BUILD_STANDALONE=true
 
-# Copy only manifest and lock for turbo
+# Copy only what's needed for turbo
 COPY calcom/package.json calcom/yarn.lock calcom/turbo.json ./
 COPY calcom/.yarn ./.yarn
 
@@ -63,18 +63,23 @@ COPY --from=builder /calcom/apps/web/package.json ./apps/web/package.json
 # Bring in helper scripts
 COPY scripts scripts
 
-# Preserve the build-time URL for start.sh
+# Preserve build-time URL for start.sh patching
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
     BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 
-# Fix any static URLs
+# Replace placeholder URLs in static build output
 RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
 
 # Stage 3: runtime image
 FROM node:18 AS runner
 
 WORKDIR /calcom
+
+# Copy everything from builder-two
 COPY --from=builder-two /calcom ./
+
+# Copy translations into Next.js public root so /locales/* are served
+COPY --from=builder-two /calcom/apps/web/public/locales ./public/locales
 
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
@@ -84,12 +89,14 @@ ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
 
 EXPOSE 3000
 
-# Ensure bash + normalize scripts
+# Normalize and make scripts executable
 RUN apt-get update && apt-get install -y bash dos2unix \
     && find ./scripts -type f -name '*.sh' -print0 | xargs -0 dos2unix \
     && find ./scripts -type f -name '*.sh' -print0 | xargs -0 chmod +x
 
+# Healthcheck on container port
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
     CMD wget --spider http://localhost:3000 || exit 1
 
-ENTRYPOINT ["bash","/calcom/scripts/start.sh"]
+# Launch via bash to pick up correct interpreter
+ENTRYPOINT ["bash", "/calcom/scripts/start.sh"]
