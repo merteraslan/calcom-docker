@@ -67,6 +67,9 @@ COPY --from=builder /calcom/packages/prisma/schema.prisma ./prisma/schema.prisma
 # Bring in helper scripts
 COPY scripts scripts
 
+# Copy Next.js public folder (includes locales/translations)
+COPY --from=builder /calcom/apps/web/public ./apps/web/public
+
 # Preserve the build-time URL for start.sh to re-patch if needed
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
     BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
