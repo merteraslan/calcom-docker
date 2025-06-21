@@ -1,19 +1,21 @@
 name: Update Calendso
 on:
-  schedule:
-    - cron: "0 4 * * *"
+  # Trigger when receiving a repository dispatch event from cal.com repo
+  repository_dispatch:
+    types: [submodule-update]
+  # Keep manual triggering capability
   workflow_dispatch: ~
 
 jobs:
   sync:
-    name: 'Submodules Sync'
+    name: "Submodules Sync"
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Git submodule update
         run: |
@@ -22,5 +24,15 @@ jobs:
       - name: Commit
         run: |
           git config user.email "actions@github.com"
-          git config user.name "actions-user"
-          git commit -am "Auto updated submodule references" && git push || echo "No changes to commit"
+          git config user.name "GitHub Actions Bot"
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            COMMIT_MSG="Auto updated submodule references
+
+          Triggered by: ${{ github.event_name }}
+          Repository: ${{ github.event.client_payload.repository || 'manual trigger' }}
+          Commit: ${{ github.event.client_payload.sha || 'latest' }}"
+            git commit -am "$COMMIT_MSG"
+            git push
+          fi
