@@ -29,7 +29,7 @@ ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
     BUILD_STANDALONE=true
 
 # Copy only manifest and lock for turbo
-COPY calcom/package.json calcom/yarn.lock calcom/turbo.json .
+COPY calcom/package.json calcom/yarn.lock calcom/turbo.json ./
 COPY calcom/.yarn ./.yarn
 
 # Copy source
@@ -49,7 +49,7 @@ ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
 ENV NODE_ENV=production
 
 # Bring in only runtime artifacts
-COPY calcom/package.json calcom/.yarnrc.yml calcom/turbo.json .
+COPY calcom/package.json calcom/.yarnrc.yml calcom/turbo.json ./
 COPY calcom/.yarn ./.yarn
 COPY --from=builder /calcom/yarn.lock ./yarn.lock
 COPY --from=builder /calcom/node_modules ./node_modules
