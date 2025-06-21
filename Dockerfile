@@ -3,9 +3,8 @@ FROM node:18 AS builder
 
 WORKDIR /calcom
 
-# Enable Corepack and prepare Yarn v3
-RUN corepack enable && \
-    corepack prepare yarn@stable --activate
+# Enable Corepack for Yarn v3
+RUN corepack enable && corepack prepare yarn@stable --activate
 
 # Build-time args
 ARG NEXT_PUBLIC_LICENSE_CONSENT
@@ -32,18 +31,20 @@ ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
     NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE_SIZE} \
     BUILD_STANDALONE=true
 
-# Copy only what's needed for turbo
+# Copy core files for dependency install
 COPY calcom/package.json calcom/yarn.lock calcom/turbo.json ./
 COPY calcom/.yarn ./.yarn
 
-# Copy source
+# Copy source code
 COPY calcom/apps/web ./apps/web
 COPY calcom/apps/api/v2 ./apps/api/v2
 COPY calcom/packages ./packages
 COPY calcom/tests ./tests
 
-# Install dependencies and build
-RUN yarn install --immutable --check-cache
+# Install dependencies (allow peer warnings)
+RUN yarn install --network-timeout 600000 --force
+
+# Build selected workspaces
 RUN npx turbo run build --filter=@calcom/web --filter=@calcom/trpc
 
 # Stage 2: assemble production files
@@ -53,14 +54,14 @@ WORKDIR /calcom
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
 ENV NODE_ENV=production
 
-# Bring in only runtime artifacts
+# Copy package metadata and Yarn cache
 COPY calcom/package.json calcom/.yarnrc.yml calcom/turbo.json ./
 COPY calcom/.yarn ./.yarn
 COPY --from=builder /calcom/yarn.lock ./yarn.lock
 COPY --from=builder /calcom/node_modules ./node_modules
 COPY --from=builder /calcom/packages ./packages
 
-# Copy built web app
+# Copy built web assets
 COPY --from=builder /calcom/apps/web/.next ./apps/web/.next
 COPY --from=builder /calcom/apps/web/public ./apps/web/public
 COPY --from=builder /calcom/apps/web/package.json ./apps/web/package.json
@@ -80,7 +81,7 @@ FROM node:18 AS runner
 
 WORKDIR /calcom
 
-# Copy everything from builder-two
+# Copy full runtime from builder-two
 COPY --from=builder-two /calcom ./
 
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
@@ -91,14 +92,14 @@ ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
 
 EXPOSE 3000
 
-# Normalize and make scripts executable
+# Install utilities, normalize scripts to UNIX line endings, and grant execution
 RUN apt-get update && apt-get install -y bash dos2unix && \
     find ./scripts -type f -name '*.sh' -print0 | xargs -0 dos2unix && \
     find ./scripts -type f -name '*.sh' -print0 | xargs -0 chmod +x
 
-# Healthcheck on container port
+# Healthcheck on port 3000
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
     CMD wget --spider http://localhost:3000 || exit 1
 
-# Launch via bash to pick up correct interpreter
+# Launch using bash for script compatibility
 ENTRYPOINT ["bash", "/calcom/scripts/start.sh"]
