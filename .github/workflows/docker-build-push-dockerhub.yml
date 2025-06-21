@@ -3,9 +3,9 @@ name: Build and push image to GHCR
 on:
   push:
     branches:
-      - 'main'
+      - "main"
     tags:
-      - 'v*'
+      - "v*"
   workflow_run:
     workflows: ["Update Calendso"]
     branches: [main]

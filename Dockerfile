@@ -74,9 +74,8 @@ COPY scripts scripts
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
     BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 
-# Fix script permissions and patch static files if needed
-RUN chmod +x scripts/*.sh \
-    && scripts/replace-placeholder.sh \
+# Patch static files if needed
+RUN scripts/replace-placeholder.sh \
     http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
 
 # Stage 3: runtime image
