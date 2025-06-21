@@ -3,8 +3,9 @@ FROM node:18 AS builder
 
 WORKDIR /calcom
 
-# Enable Corepack so Yarn v3 is available
-RUN corepack enable
+# Enable Corepack and prepare Yarn v3
+RUN corepack enable && \
+    corepack prepare yarn@stable --activate
 
 # Build-time args
 ARG NEXT_PUBLIC_LICENSE_CONSENT
@@ -41,7 +42,8 @@ COPY calcom/apps/api/v2 ./apps/api/v2
 COPY calcom/packages ./packages
 COPY calcom/tests ./tests
 
-RUN yarn install --immutable --immutable-cache --check-cache
+# Install dependencies and build
+RUN yarn install --immutable --check-cache
 RUN npx turbo run build --filter=@calcom/web --filter=@calcom/trpc
 
 # Stage 2: assemble production files
@@ -90,13 +92,13 @@ ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
 EXPOSE 3000
 
 # Normalize and make scripts executable
-RUN apt-get update && apt-get install -y bash dos2unix \
-    && find ./scripts -type f -name '*.sh' -print0 | xargs -0 dos2unix \
-    && find ./scripts -type f -name '*.sh' -print0 | xargs -0 chmod +x
+RUN apt-get update && apt-get install -y bash dos2unix && \
+    find ./scripts -type f -name '*.sh' -print0 | xargs -0 dos2unix && \
+    find ./scripts -type f -name '*.sh' -print0 | xargs -0 chmod +x
 
 # Healthcheck on container port
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
     CMD wget --spider http://localhost:3000 || exit 1
 
 # Launch via bash to pick up correct interpreter
-ENTRYPOINT ["bash","/calcom/scripts/start.sh"]
+ENTRYPOINT ["bash", "/calcom/scripts/start.sh"]
