@@ -47,14 +47,12 @@ jobs:
             ghcr.io/merteraslan/calcom
           flavor: |
             latest=${{ !github.event.release.prerelease }}
-
       - name: Copy env
         run: |
           grep -o '^[^#]*' .env.example > .env
           cat .env >> $GITHUB_ENV
           echo "DATABASE_HOST=localhost:5432" >> $GITHUB_ENV
           eval $(sed -e '/^#/d' -e 's/^/export /' -e 's/$/;/' .env)
-
       - name: Start database
         run: docker compose up -d database
 
@@ -65,16 +63,16 @@ jobs:
             network=container:database
           buildkitd-flags: |
             --allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host
-
-      - name: Build and push candidate image
+      - name: Build image
         id: docker_build
         uses: docker/build-push-action@v5
         with:
           context: ./
           file: ./Dockerfile
-          push: true
+          load: true
+          push: false
           platforms: linux/amd64
-          tags: ghcr.io/${{ github.repository }}:test-candidate-${{ github.run_id }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             NEXT_PUBLIC_WEBAPP_URL=${{ env.NEXT_PUBLIC_WEBAPP_URL }}
@@ -83,15 +81,11 @@ jobs:
             NEXT_PUBLIC_TELEMETRY_KEY=${{ env.NEXT_PUBLIC_TELEMETRY_KEY }}
             DATABASE_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.POSTGRES_DB }}
             DATABASE_DIRECT_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.POSTGRES_DB }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Test runtime
         run: |
-          tag="ghcr.io/${{ github.repository }}:test-candidate-${{ github.run_id }}"
-          echo "--- Pulling test image: $tag ---"
-          docker pull $tag
-          echo "--- Starting container for testing ---"
+          tags="${{ steps.meta.outputs.tags }}"
+          IFS=',' read -ra ADDR <<< "$tags"
+          tag=${ADDR[0]}
           docker run --rm --network stack \
             -p 3000:3000 \
             -e DATABASE_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@database/${{ env.POSTGRES_DB }} \
@@ -99,7 +93,6 @@ jobs:
             -e NEXTAUTH_SECRET=${{ env.NEXTAUTH_SECRET }} \
             -e CALENDSO_ENCRYPTION_KEY=${{ env.CALENDSO_ENCRYPTION_KEY }} \
             $tag &
-
           server_pid=$!
           echo "Waiting for the server to start..."
           sleep 120
@@ -119,19 +112,24 @@ jobs:
           NEXTAUTH_SECRET: ${{ env.NEXTAUTH_SECRET }}
           CALENDSO_ENCRYPTION_KEY: ${{ env.CALENDSO_ENCRYPTION_KEY }}
 
-      - name: Setup Crane
-        if: success() && !github.event.release.prerelease
-        uses: imjasonh/setup-crane@v0.3
-
-      - name: Promote image to final tags
-        if: success() && !github.event.release.prerelease
-        run: |
-          CANDIDATE_IMAGE="ghcr.io/${{ github.repository }}:test-candidate-${{ github.run_id }}"
-          echo "Promoting $CANDIDATE_IMAGE to final tags..."
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            echo "Tagging $CANDIDATE_IMAGE as $tag"
-            crane tag $CANDIDATE_IMAGE $tag
-          done
+      - name: Push image to GHCR
+        id: docker_push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_WEBAPP_URL=${{ env.NEXT_PUBLIC_WEBAPP_URL }}
+            NEXT_PUBLIC_API_V2_URL=${{ env.NEXT_PUBLIC_API_V2_URL }}
+            NEXT_PUBLIC_LICENSE_CONSENT=${{ env.NEXT_PUBLIC_LICENSE_CONSENT }}
+            NEXT_PUBLIC_TELEMETRY_KEY=${{ env.NEXT_PUBLIC_TELEMETRY_KEY }}
+            DATABASE_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.POSTGRES_DB }}
+            DATABASE_DIRECT_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.POSTGRES_DB }}
+        if: ${{ !github.event.release.prerelease }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
