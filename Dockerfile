@@ -78,20 +78,18 @@ RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${N
 FROM node:18 AS runner
 
 WORKDIR /calcom
-
-# Copy everything from builder-two
 COPY --from=builder-two /calcom ./
 
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
     BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
-    NODE_ENV=production
+    NODE_ENV=production \
+    PORT=3000
 
 EXPOSE 3000
 
-# Install bash & dos2unix, normalize scripts, and make executable
-RUN apt-get update && \
-    apt-get install -y bash dos2unix && \
+# Normalize and make scripts executable
+RUN apt-get update && apt-get install -y bash dos2unix && \
     find ./scripts -type f -name '*.sh' -print0 \
     | xargs -0 dos2unix && \
     find ./scripts -type f -name '*.sh' -print0 \
@@ -100,5 +98,5 @@ RUN apt-get update && \
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
     CMD wget --spider http://localhost:3000 || exit 1
 
-# Launch under bash to ensure correct interpreter
+# Launch via bash; PORT env ensures Next.js listens on 3000
 ENTRYPOINT ["bash", "/calcom/scripts/start.sh"]
