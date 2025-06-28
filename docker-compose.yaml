@@ -51,6 +51,7 @@ services:
       - "3000:3000"
     environment:
       # --- DB ---
+      WAIT_ON:             "database:5432 redis:6379"
       DATABASE_URL:        postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
       DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
       # --- REDIS ---
@@ -79,6 +80,7 @@ services:
     ports:
       - "5555:5555"
     environment:
+      WAIT_ON:      "database:5432 redis:6379"
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
     depends_on:
       database:
