@@ -10,7 +10,7 @@ networks:
     external: false
 
 services:
-  # PostgreSQL Database
+  # ---------- POSTGRESQL ----------
   database:
     container_name: calcom-database
     image: postgres:17-alpine
@@ -19,7 +19,7 @@ services:
       - database-data:/var/lib/postgresql/data/
     networks:
       - stack
-    environment:                     # ← THIS WAS MISSING
+    environment:
       POSTGRES_USER:     ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB:       ${POSTGRES_DB:-postgres}
@@ -29,24 +29,23 @@ services:
       timeout: 5s
       retries: 5
 
-
-  # Redis Cache
+  # ---------- REDIS ----------
   redis:
     container_name: calcom-redis
     image: redis:7.2-alpine
     restart: always
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis-data:/data
     networks:
       - stack
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Cal.com Application
+  # ---------- CAL.COM ----------
   calcom:
     container_name: calcom-app
     image: calcom.docker.scarf.sh/calcom/cal.com
@@ -55,32 +54,29 @@ services:
       - stack
     ports:
       - "3000:3000"
-    env_file: .env
+    env_file: .env          # put static stuff here if you like; secrets via CI/Coolify
     environment:
-      # Database Configuration
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
-      - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
-      
-      # Redis Configuration
-      - REDIS_URL=redis://redis:6379
-      
-      # Cal.com Configuration
-      - NEXT_PUBLIC_WEBAPP_URL=${NEXT_PUBLIC_WEBAPP_URL}
-      - NEXT_PUBLIC_API_V2_URL=${NEXT_PUBLIC_API_V2_URL}
-      - NEXT_PUBLIC_LICENSE_CONSENT=${NEXT_PUBLIC_LICENSE_CONSENT}
-      - NEXT_PUBLIC_WEBSITE_TERMS_URL=${NEXT_PUBLIC_WEBSITE_TERMS_URL}
-      - NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL=${NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL}
-      - CALCOM_TELEMETRY_DISABLED=${CALCOM_TELEMETRY_DISABLED}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - CALENDSO_ENCRYPTION_KEY=${CALENDSO_ENCRYPTION_KEY}
+      # --- DB ---
+      DATABASE_URL:        postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
+      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
+      # --- REDIS ---
+      REDIS_URL:           redis://redis:6379/0
+      # --- CAL.COM ---
+      NEXT_PUBLIC_WEBAPP_URL:              ${NEXT_PUBLIC_WEBAPP_URL}
+      NEXT_PUBLIC_API_V2_URL:              ${NEXT_PUBLIC_API_V2_URL}
+      NEXT_PUBLIC_LICENSE_CONSENT:         ${NEXT_PUBLIC_LICENSE_CONSENT}
+      NEXT_PUBLIC_WEBSITE_TERMS_URL:       ${NEXT_PUBLIC_WEBSITE_TERMS_URL}
+      NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL: ${NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL}
+      CALCOM_TELEMETRY_DISABLED:           ${CALCOM_TELEMETRY_DISABLED}
+      NEXTAUTH_SECRET:                     ${NEXTAUTH_SECRET}
+      CALENDSO_ENCRYPTION_KEY:             ${CALENDSO_ENCRYPTION_KEY}
     depends_on:
       database:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # Optional: Prisma Studio for database management
-  # Remove this section in production
+  # ---------- PRISMA STUDIO (DEV-ONLY) ----------
   studio:
     container_name: calcom-studio
     image: calcom.docker.scarf.sh/calcom/cal.com
@@ -91,13 +87,8 @@ services:
       - "5555:5555"
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
     depends_on:
       database:
         condition: service_healthy
-    command:
-      - npx
-      - prisma
-      - studio
-      - --hostname
-      - "0.0.0.0"
+    command: ["npx", "prisma", "studio", "--hostname", "0.0.0.0"]
