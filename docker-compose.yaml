@@ -1,6 +1,7 @@
+# Use postgres/example user/password credentials
+
 volumes:
   database-data:
-  redis-data:
 
 networks:
   stack:
@@ -8,81 +9,60 @@ networks:
     external: false
 
 services:
-  # ---------- POSTGRESQL ----------
   database:
-    container_name: calcom-database
-    image: postgres:17-alpine
+    container_name: database
+    image: postgres
     restart: always
     volumes:
       - database-data:/var/lib/postgresql/data/
-    networks: [stack]
-    environment:
-      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB:       ${POSTGRES_DB:-postgres}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    env_file: .env
+    networks:
+      - stack
 
-  # ---------- REDIS ----------
-  redis:
-    container_name: calcom-redis
-    image: redis:7.2-alpine
-    restart: always
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
-    volumes:
-      - redis-data:/data
-    networks: [stack]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ---------- CAL.COM ----------
   calcom:
-    container_name: calcom-app
     image: calcom.docker.scarf.sh/calcom/cal.com
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_WEBAPP_URL: ${NEXT_PUBLIC_WEBAPP_URL}
+        NEXT_PUBLIC_API_V2_URL: ${NEXT_PUBLIC_API_V2_URL}
+        NEXT_PUBLIC_LICENSE_CONSENT: ${NEXT_PUBLIC_LICENSE_CONSENT}
+        NEXT_PUBLIC_WEBSITE_TERMS_URL: ${NEXT_PUBLIC_WEBSITE_TERMS_URL}
+        NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL: ${NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL}
+        CALCOM_TELEMETRY_DISABLED: ${CALCOM_TELEMETRY_DISABLED}
+        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+        CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY}
+        DATABASE_URL: ${DATABASE_URL}
+        DATABASE_DIRECT_URL: ${DATABASE_URL}
     restart: always
-    networks: [stack]
+    networks:
+      - stack
     ports:
-      - "3000:3000"
+      - 3000:3000
+    env_file: .env
     environment:
-      # --- DB ---
-      WAIT_ON:             "database:5432 redis:6379"
-      DATABASE_URL:        postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
-      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
-      # --- REDIS ---
-      REDIS_URL:           redis://redis:6379/0
-      # --- CAL.COM ---
-      NEXT_PUBLIC_WEBAPP_URL:              ${NEXT_PUBLIC_WEBAPP_URL}
-      NEXT_PUBLIC_API_V2_URL:              ${NEXT_PUBLIC_API_V2_URL}
-      NEXT_PUBLIC_LICENSE_CONSENT:         ${NEXT_PUBLIC_LICENSE_CONSENT}
-      NEXT_PUBLIC_WEBSITE_TERMS_URL:       ${NEXT_PUBLIC_WEBSITE_TERMS_URL}
-      NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL: ${NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL}
-      CALCOM_TELEMETRY_DISABLED:           ${CALCOM_TELEMETRY_DISABLED}
-      NEXTAUTH_SECRET:                     ${NEXTAUTH_SECRET}
-      CALENDSO_ENCRYPTION_KEY:             ${CALENDSO_ENCRYPTION_KEY}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}
+      - DATABASE_DIRECT_URL=${DATABASE_URL}
     depends_on:
-      database:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - database
 
-  # ---------- PRISMA STUDIO (DEV-ONLY) ----------
+# Optional use of Prisma Studio. In production, comment out or remove the section below to prevent unwanted access to your database.
   studio:
-    container_name: calcom-studio
     image: calcom.docker.scarf.sh/calcom/cal.com
     restart: always
-    networks: [stack]
+    networks:
+      - stack
     ports:
-      - "5555:5555"
+      - 5555:5555
+    env_file: .env
     environment:
-      WAIT_ON:      "database:5432 redis:6379"
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-postgres}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}
+      - DATABASE_DIRECT_URL=${DATABASE_URL}
     depends_on:
-      database:
-        condition: service_healthy
-    command: ["npx", "prisma", "studio", "--hostname", "0.0.0.0"]
+      - database
+    command:
+      - npx
+      - prisma
+      - studio
+# END SECTION: Optional use of Prisma Studio.
