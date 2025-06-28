@@ -19,11 +19,16 @@ services:
       - database-data:/var/lib/postgresql/data/
     networks:
       - stack
+    environment:                     # ← THIS WAS MISSING
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB:       ${POSTGRES_DB:-postgres}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
 
   # Redis Cache
   redis:
