@@ -51,11 +51,10 @@ jobs:
       # ---------- ENV FILE + RANDOM DB PASSWORD ----------
       - name: Copy env
         run: |
-          # copy non-comment lines from the example into .env
           grep -o '^[^#]*' .env.example > .env
-          # add a fresh 20-byte random password for Postgres
           echo "POSTGRES_PASSWORD=$(openssl rand -base64 20)" >> .env
-          # expose everything to later steps
+          echo "POSTGRES_USER=postgres"  >> .env          # NEW
+          echo "POSTGRES_DB=postgres"    >> .env          # NEW
           cat .env >> $GITHUB_ENV
           echo "DATABASE_HOST=database:5432" >> $GITHUB_ENV
           eval $(sed -e '/^#/d' -e 's/^/export /' -e 's/$/;/' .env)
