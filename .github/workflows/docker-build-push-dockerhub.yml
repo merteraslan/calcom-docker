@@ -129,8 +129,8 @@ jobs:
 
           docker run --rm --network stack \
             -p 3000:3000 \
-            -e DATABASE_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@database/${{ env.POSTGRES_DB }} \
-            -e DATABASE_DIRECT_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@database/${{ env.POSTGRES_DB }} \
+            -e DATABASE_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@database:5432/${{ env.POSTGRES_DB }} \
+            -e DATABASE_DIRECT_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@database:5432/${{ env.POSTGRES_DB }} \
             -e NEXTAUTH_SECRET=${{ env.NEXTAUTH_SECRET }} \
             -e CALENDSO_ENCRYPTION_KEY=${{ env.CALENDSO_ENCRYPTION_KEY }} \
             $tag &
