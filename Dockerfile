@@ -34,7 +34,7 @@ COPY calcom/.yarn ./.yarn
 COPY calcom/apps/web ./apps/web
 COPY calcom/apps/api/v2 ./apps/api/v2
 COPY calcom/packages ./packages
-COPY calcom/tests ./tests
+
 
 # 2) Enable Yarn 3 via Corepack, prune, then install all needed deps
 RUN corepack enable \
