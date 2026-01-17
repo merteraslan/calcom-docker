@@ -16,10 +16,7 @@ services:
   calcom:
     image: ghcr.io/merteraslan/calcom:latest
     restart: always
-    networks:
-      - calcom-stack
-    ports:
-      - "3000:3000"
+
     environment:
       # Database connection
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@database:5432/${POSTGRES_DB:-calcom}
@@ -36,6 +33,16 @@ services:
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY}
       NODE_ENV: production
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.calcom.rule=Host(`calcom.voxvol.com`)
+      - traefik.http.routers.calcom.entrypoints=websecure
+      - traefik.http.routers.calcom.tls=true
+      - traefik.http.routers.calcom.tls.certresolver=letsencrypt
+      - traefik.http.services.calcom.loadbalancer.server.port=3000
+    networks:
+      - calcom-stack
+      - coolify
 
 volumes:
   calcom-database-data:
@@ -43,3 +50,5 @@ volumes:
 
 networks:
   calcom-stack:
+  coolify:
+    external: true
