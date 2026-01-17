@@ -36,7 +36,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.calcom.rule=Host(`calcom.voxvol.com`)
-      - traefik.http.routers.calcom.entrypoints=websecure
+      - traefik.http.routers.calcom.entrypoints=https
       - traefik.http.routers.calcom.tls=true
       - traefik.http.routers.calcom.tls.certresolver=letsencrypt
       - traefik.http.services.calcom.loadbalancer.server.port=3000
