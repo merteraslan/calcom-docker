@@ -21,7 +21,8 @@ npx ts-node --transpile-only /calcom/scripts/seed-app-store.ts
 
 # Copy app-store static files (icons) to public folder
 # This is needed because public/app-store is gitignored
-cd /calcom/apps/web && node scripts/copy-app-store-static.js && cd /calcom
+# Using standalone script that doesn't require devDependencies
+node /calcom/scripts/copy-app-store-static-standalone.js
 
 yarn start
 
