@@ -16,9 +16,7 @@ services:
   calcom:
     image: ghcr.io/merteraslan/calcom:latest
     restart: always
-
     environment:
-      # Database connection
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@database:5432/${POSTGRES_DB:-calcom}
       DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@database:5432/${POSTGRES_DB:-calcom}
       DATABASE_HOST: database
@@ -31,7 +29,15 @@ services:
       NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL: ${NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL}
       CALCOM_TELEMETRY_DISABLED: ${CALCOM_TELEMETRY_DISABLED}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      # Performance optimization for server-side auth calls
+      NEXTAUTH_URL_INTERNAL: http://127.0.0.1:3000
       CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY}
+
+      # MAP SYSTEM VARIABLE TO CUSTOM ONE FOR AUTH
+      CRON_SECRET: ${CALCOM_CRON_SECRET_CUSTOM}
+      # KEEP CUSTOM VAR FOR CLARITY
+      CALCOM_CRON_SECRET_CUSTOM: ${CALCOM_CRON_SECRET_CUSTOM}
+
       NODE_ENV: production
     labels:
       - traefik.enable=true
@@ -43,6 +49,21 @@ services:
     networks:
       - calcom-stack
       - coolify
+
+  cron-runner:
+    image: alpine:latest
+    restart: always
+    networks:
+      - calcom-stack
+    environment:
+      # MAP SYSTEM VARIABLE TO CUSTOM ONE
+      CRON_SECRET: ${CALCOM_CRON_SECRET_CUSTOM}
+      # KEEP CUSTOM VAR
+      CALCOM_CRON_SECRET_CUSTOM: ${CALCOM_CRON_SECRET_CUSTOM}
+
+      NEXT_PUBLIC_WEBAPP_URL: http://calcom:3000
+    command: >
+      sh -c "apk add --no-cache curl && while true; do curl -X GET -H \"Authorization: Bearer $$CALCOM_CRON_SECRET_CUSTOM\" http://calcom:3000/api/tasks/cron; sleep 60; done"
 
 volumes:
   calcom-database-data:
