@@ -46,6 +46,7 @@ RUN corepack enable \
 # 3) Build each workspace
 RUN yarn workspace @calcom/trpc run build \
     && yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build \
+    && yarn --cwd apps/web workspace @calcom/web run copy-app-store-static \
     && yarn --cwd apps/web workspace @calcom/web run build
 
 # 4) Clean caches
