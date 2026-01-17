@@ -12,18 +12,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-calcom}
     networks:
       - calcom-stack
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   calcom:
     image: ghcr.io/merteraslan/calcom:latest
     restart: always
-    depends_on:
-      database:
-        condition: service_healthy
     networks:
       - calcom-stack
     ports:
@@ -51,4 +43,3 @@ volumes:
 
 networks:
   calcom-stack:
-    name: calcom-stack
