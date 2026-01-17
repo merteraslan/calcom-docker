@@ -18,4 +18,10 @@ fi
 scripts/wait-for-it.sh "$HOST" -t 60 -- echo "database is up"
 npx prisma migrate deploy --schema /calcom/packages/prisma/schema.prisma
 npx ts-node --transpile-only /calcom/scripts/seed-app-store.ts
+
+# Copy app-store static files (icons) to public folder
+# This is needed because public/app-store is gitignored
+cd /calcom/apps/web && node scripts/copy-app-store-static.js && cd /calcom
+
 yarn start
+
