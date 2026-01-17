@@ -1,5 +1,5 @@
 # Stage 1: build the Cal.com app
-FROM node:18 AS builder
+FROM node:20 AS builder
 
 WORKDIR /calcom
 
@@ -52,7 +52,7 @@ RUN yarn workspace @calcom/trpc run build \
 RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache
 
 # Stage 2: assemble production files
-FROM node:18 AS builder-two
+FROM node:20 AS builder-two
 
 WORKDIR /calcom
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
@@ -80,7 +80,7 @@ RUN chmod +x scripts/*.sh \
     http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
 
 # Stage 3: runtime image
-FROM node:18 AS runner
+FROM node:20 AS runner
 
 WORKDIR /calcom
 COPY --from=builder-two /calcom ./
