@@ -68,6 +68,7 @@ COPY --from=builder /calcom/apps/web ./apps/web
 COPY --from=builder /calcom/packages/prisma/schema.prisma ./prisma/schema.prisma
 
 # Bring in helper scripts
+COPY calcom/scripts ./scripts
 COPY scripts scripts
 
 # Preserve the built URL for runtime replacement
@@ -95,7 +96,7 @@ EXPOSE 3000
 
 # Fix line endings & make scripts executable
 RUN apt-get update \
-    && apt-get install -y bash dos2unix \
+    && apt-get install -y bash dos2unix netcat-openbsd \
     && find ./scripts -type f -name '*.sh' -print0 | xargs -0 dos2unix \
     && find ./scripts -type f -name '*.sh' -print0 | xargs -0 chmod +x
 
